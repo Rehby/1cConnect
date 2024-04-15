@@ -8,7 +8,7 @@ import (
 )
 
 type SyncData struct {
-	data          map[int]([]Messages)
+	data          map[int64]([]Messages)
 	priority_data []Messages
 	mutex         sync.Mutex
 }
@@ -18,13 +18,13 @@ type Messages struct {
 	status   bool
 }
 
-var sm = SyncData{data: make(map[int]([]Messages))}
+var sm = SyncData{data: make(map[int64]([]Messages))}
 
 // var queue = make(map[int](chan Messages))
 
 func main() {
 	portPost := ":8080"
-	wakeup := make(chan bool)
+
 	// Запуск сервера в отдельной горутине
 	go func() {
 		startServer(portPost)
@@ -32,7 +32,7 @@ func main() {
 
 	go func() {
 
-		startClient(wakeup)
+		startClient()
 	}()
 
 	// Отключение сервера при завершении main

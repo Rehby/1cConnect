@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func addHandler(w http.ResponseWriter, r *http.Request) {
+func testHandler(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != "POST" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -20,7 +20,24 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 
 	Priority := r.FormValue("Priority")
 	Message := r.FormValue("Message")
-	datetime := r.FormValue("datetime") //utc sec date
+
+	if Priority == "" || Message == "" {
+		http.Error(w, "Invalid task data", http.StatusBadRequest)
+		return
+	}
+
+}
+
+func addHandler(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	Priority := r.FormValue("priority")
+	Message := r.FormValue("message")
+	datetime := r.FormValue("datetime") //unix date
 
 	if Priority == "" || Message == "" || datetime == "" {
 		http.Error(w, "Invalid task data", http.StatusBadRequest)
@@ -33,7 +50,7 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid Priority", http.StatusBadRequest)
 		return
 	}
-	datetimeInt, err := strconv.Atoi(datetime)
+	datetimeInt, err := strconv.ParseInt(datetime, 10, 64)
 	datetimeInt /= 60
 	if err != nil || datetimeInt < 0 {
 		http.Error(w, "Invalid datetime", http.StatusBadRequest)
@@ -42,7 +59,7 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 
 	go add_data(PriorityInt, Message, false, datetimeInt)
 }
-func add_data(PriorityInt int, Message interface{}, false bool, sendTime int) {
+func add_data(PriorityInt int, Message interface{}, false bool, sendTime int64) {
 	new_msg := Messages{PriorityInt, Message, false}
 	sm.mutex.Lock()
 	defer sm.mutex.Unlock()
@@ -65,13 +82,12 @@ func filter(sm []Messages) (ret []Messages, ids []int) {
 	return
 }
 
-func send_data(send_date int) (sended []Messages) {
+func send_data(send_date int64) (sended []Messages) {
 	sm.mutex.Lock()
 	defer sm.mutex.Unlock()
 
 	unsended_Priority, ids_Priority := filter(sm.priority_data)
 	unsended_main, ids_main := filter(sm.data[send_date])
-
 	if len(unsended_Priority) != 0 {
 		sended = append(sended, unsended_Priority...)
 		for _, val := range ids_Priority {
@@ -93,31 +109,40 @@ func send_data(send_date int) (sended []Messages) {
 	return
 }
 
-func nextTaskTime() int {
+func nextTaskTime() int64 {
 	sm.mutex.Lock()
 	defer sm.mutex.Unlock()
-	if len(sm.data) < 0 {
-		return -1
+	dataprior, _ := filter(sm.priority_data)
+	if len(dataprior) != 0 {
+		return 0
 	}
-	keys := make([]int, len(sm.data))
 
-	i := 0
-	for k := range sm.data {
-		if k > time.Now().UTC().Minute() {
-			keys[i] = k
-			i++
+	if len(sm.data) == 0 {
+		return 0
+	}
+
+	// i := 0
+
+	var keys []int64
+	for key, _ := range sm.data {
+		fmt.Println(time.Now().Unix() / 60)
+		if key <= time.Now().Unix()/60 {
+			keys = append(keys, key)
 		}
 
 	}
+	fmt.Println(keys[0]*60 - time.Now().Unix())
 	sort.Slice(keys, func(i, j int) bool {
 		return keys[i] < keys[j]
 	})
-	return keys[0] - time.Now().UTC().Second()
+
+	return keys[0]*60 - time.Now().Unix()
 }
 
 func funcClient(client *http.Client) {
 
-	datetimeInt := time.Now().UTC().Second() / 60
+	datetimeInt := time.Now().Unix() / 60
+
 	send := send_data(datetimeInt)
 
 	if len(send) == 0 {
@@ -136,7 +161,7 @@ func funcClient(client *http.Client) {
 		fmt.Println("Error: ", err)
 		return
 	}
-	url := "127.0.0.1:8088/task"
+	url := "http://127.0.0.1:8080/task"
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(json_data))
 	if err != nil {
 		fmt.Println("Error: ", err)

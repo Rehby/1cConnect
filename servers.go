@@ -6,18 +6,16 @@ import (
 	"time"
 )
 
-func startClient(wakeup chan bool) {
+// var wakeup = make(chan bool)
+
+func startClient() {
 	client := &http.Client{
 		Timeout: time.Second * 10, // Устанавливаем таймаут в 10 секунд
 	}
+
 	for {
 		funcClient(client)
-		timesleep := nextTaskTime() - time.Now().UTC().Second()
-		if timesleep > 0 {
-			time.Sleep(time.Duration(timesleep) * time.Second)
-		} else {
-			<-wakeup
-		}
+		time.Sleep(1 * time.Second)
 
 	}
 }
@@ -27,7 +25,7 @@ func stopClient(client *http.Client) {
 func startServer(port string) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/add", addHandler)
-	mux.HandleFunc("/test", addHandler)
+	mux.HandleFunc("/test", testHandler)
 	server := &http.Server{Addr: port, Handler: mux, WriteTimeout: 10 * time.Second}
 	fmt.Println("Starting server on port", port)
 	err := server.ListenAndServe()
