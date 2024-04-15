@@ -11,23 +11,6 @@ import (
 	"time"
 )
 
-func testHandler(w http.ResponseWriter, r *http.Request) {
-
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	Priority := r.FormValue("Priority")
-	Message := r.FormValue("Message")
-
-	if Priority == "" || Message == "" {
-		http.Error(w, "Invalid task data", http.StatusBadRequest)
-		return
-	}
-
-}
-
 func addHandler(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != "POST" {

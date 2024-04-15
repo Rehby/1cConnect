@@ -25,7 +25,7 @@ func stopClient(client *http.Client) {
 func startServer(port string) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/add", addHandler)
-	mux.HandleFunc("/test", testHandler)
+
 	server := &http.Server{Addr: port, Handler: mux, WriteTimeout: 10 * time.Second}
 	fmt.Println("Starting server on port", port)
 	err := server.ListenAndServe()
