@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 )
 
 type SyncData struct {
@@ -23,7 +24,7 @@ var sm = SyncData{data: make(map[int]([]Messages))}
 
 func main() {
 	portPost := ":8080"
-
+	wakeup := make(chan bool)
 	// Запуск сервера в отдельной горутине
 	go func() {
 		startServer(portPost)
@@ -31,12 +32,12 @@ func main() {
 
 	go func() {
 
-		startClient()
+		startClient(wakeup)
 	}()
 
 	// Отключение сервера при завершении main
 	defer stopServer(&http.Server{Addr: portPost})
-
+	defer stopClient(&http.Client{Timeout: time.Second * 10})
 	// Ожидание нажатия Enter для завершения программы
 	fmt.Println("Press Enter to exit...")
 	fmt.Scanln()

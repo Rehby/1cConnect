@@ -1,10 +1,14 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"sort"
 	"strconv"
+	"time"
 )
 
 func addHandler(w http.ResponseWriter, r *http.Request) {
@@ -50,36 +54,6 @@ func add_data(PriorityInt int, Message interface{}, false bool, sendTime int) {
 
 }
 
-func getHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	datetime := r.FormValue("datetime")
-
-	datetimeInt, err := strconv.Atoi(datetime)
-
-	if err != nil || datetimeInt < 0 {
-		http.Error(w, "Invalid datetime", http.StatusBadRequest)
-		return
-	}
-	datetimeInt /= 60
-	send := send_data(datetimeInt)
-
-	if len(send) == 0 {
-		http.Error(w, "{}", http.StatusAccepted)
-		return
-	}
-	for i, data := range send {
-		if i != 0 {
-			fmt.Println(data.Message, data.Priority)
-		}
-
-	}
-	data := fmt.Sprintf("%v %v", send[0].Message, datetimeInt)
-	fmt.Fprintf(w, data)
-}
-
 func filter(sm []Messages) (ret []Messages, ids []int) {
 	for i, s := range sm {
 		if !s.status {
@@ -117,4 +91,69 @@ func send_data(send_date int) (sended []Messages) {
 	}
 
 	return
+}
+
+func nextTaskTime() int {
+	sm.mutex.Lock()
+	defer sm.mutex.Unlock()
+	if len(sm.data) < 0 {
+		return -1
+	}
+	keys := make([]int, len(sm.data))
+
+	i := 0
+	for k := range sm.data {
+		if k > time.Now().UTC().Minute() {
+			keys[i] = k
+			i++
+		}
+
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		return keys[i] < keys[j]
+	})
+	return keys[0] - time.Now().UTC().Second()
+}
+
+func funcClient(client *http.Client) {
+
+	datetimeInt := time.Now().UTC().Second() / 60
+	send := send_data(datetimeInt)
+
+	if len(send) == 0 {
+
+		return
+	}
+	for i, data := range send {
+		if i != 0 {
+			fmt.Println(data.Message, data.Priority)
+		}
+
+	}
+
+	json_data, err := json.Marshal(send[0])
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return
+	}
+	url := "127.0.0.1:8088/task"
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(json_data))
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return
+	}
+	fmt.Println("Status code:", resp.StatusCode)
+	fmt.Println("Response body: ", string(body))
 }
