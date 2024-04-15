@@ -14,19 +14,19 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	priority := r.FormValue("priority")
-	message := r.FormValue("message")
+	Priority := r.FormValue("Priority")
+	Message := r.FormValue("Message")
 	datetime := r.FormValue("datetime") //utc sec date
 
-	if priority == "" || message == "" || datetime == "" {
+	if Priority == "" || Message == "" || datetime == "" {
 		http.Error(w, "Invalid task data", http.StatusBadRequest)
 		return
 	}
 
 	// Преобразование ID к целому числу
-	priorityInt, err := strconv.Atoi(priority)
-	if err != nil || priorityInt > 3 {
-		http.Error(w, "Invalid priority", http.StatusBadRequest)
+	PriorityInt, err := strconv.Atoi(Priority)
+	if err != nil || PriorityInt > 3 {
+		http.Error(w, "Invalid Priority", http.StatusBadRequest)
 		return
 	}
 	datetimeInt, err := strconv.Atoi(datetime)
@@ -36,13 +36,13 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go add_data(priorityInt, message, false, datetimeInt)
+	go add_data(PriorityInt, Message, false, datetimeInt)
 }
-func add_data(priorityInt int, message interface{}, false bool, sendTime int) {
-	new_msg := Messages{priorityInt, message, false}
+func add_data(PriorityInt int, Message interface{}, false bool, sendTime int) {
+	new_msg := Messages{PriorityInt, Message, false}
 	sm.mutex.Lock()
 	defer sm.mutex.Unlock()
-	if priorityInt == 3 {
+	if PriorityInt == 3 {
 		sm.priority_data = append(sm.priority_data, new_msg)
 	} else {
 		sm.data[sendTime] = append(sm.data[sendTime], new_msg)
@@ -72,11 +72,11 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	for i, data := range send {
 		if i != 0 {
-			fmt.Println(data.message, data.priority)
+			fmt.Println(data.Message, data.Priority)
 		}
 
 	}
-	data := fmt.Sprintf("%v", send[0].message)
+	data := fmt.Sprintf("%v %v", send[0].Message, datetimeInt)
 	fmt.Fprintf(w, data)
 }
 
@@ -95,18 +95,18 @@ func send_data(send_date int) (sended []Messages) {
 	sm.mutex.Lock()
 	defer sm.mutex.Unlock()
 
-	unsended_priority, ids_priority := filter(sm.priority_data)
+	unsended_Priority, ids_Priority := filter(sm.priority_data)
 	unsended_main, ids_main := filter(sm.data[send_date])
 
-	if len(unsended_priority) != 0 {
-		sended = append(sended, unsended_priority...)
-		for _, val := range ids_priority {
+	if len(unsended_Priority) != 0 {
+		sended = append(sended, unsended_Priority...)
+		for _, val := range ids_Priority {
 			sm.priority_data[val].status = true
 		}
 	}
 
 	sort.Slice(unsended_main, func(i, j int) bool {
-		return unsended_main[i].priority > unsended_main[j].priority
+		return unsended_main[i].Priority > unsended_main[j].Priority
 	})
 
 	if len(unsended_main) != 0 {
